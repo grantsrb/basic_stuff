@@ -2,12 +2,15 @@ import torch
 
 class DataSplit:
     def __init__(self, data, train_p=.8):
+
+        # Randomly split data into train and validation set
         perm = torch.randperm(data.train_data.shape[0])
         split_idx = int(len(perm)*train_p)
-        self.train_X = data.train_data[:split_idx]
-        self.train_Y = data.train_labels[:split_idx]
-        self.valid_X = data.train_data[split_idx:]
-        self.valid_Y = data.train_labels[split_idx:]
+        self.train_X = data.train_data[perm[:split_idx]]
+        self.train_Y = data.train_labels[perm[:split_idx]]
+        self.valid_X = data.train_data[perm[split_idx:]]
+        self.valid_Y = data.train_labels[perm[split_idx:]]
+        
         self.normalized = False
         self.data_mean = None
         self.data_std = None
@@ -37,8 +40,18 @@ class Optimizer:
         Sets the learning rate based off of an inverted cosine wave that has a min at y = base_lr and t = 0.
 
         t - the location along the x dimension to evaluate the learning rate
+        range - 
         """
+        pass
         
+    def cycle_mmtm(self, t):
+        """
+        Sets the learning rate based off of an inverted cosine wave that has a min at y = base_lr and t = 0.
+
+        t - the location along the x dimension to evaluate the learning rate
+        range - 
+        """
+        pass
 
     def step(self):
         self.optim.step()
@@ -47,6 +60,9 @@ class Optimizer:
         self.optim.zero_grad()
 
     def new_optimizer(self, state_dict, opt_type, lr):
+        """
+        Defaults to adam optimizer if opt_type is unrecognized.
+        """
         if 'dam' in opt_type:
             return torch.optim.Adam(state_dict, lr=lr)
         if 'prop' in opt_type:

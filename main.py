@@ -18,7 +18,7 @@ Pseudo:
 
 if __name__ == "__main__":
     hyps = HyperCollector().hyps
-    data = torchvision.datasets.CIFAR10("../../datasets/cifar10", train=True)
+    data = torchvision.datasets.CIFAR10("../../datasets/", train=True, download=True)
     data = DataSplit(data)
     data.normalize()
 
