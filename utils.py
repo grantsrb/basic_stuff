@@ -1,80 +1,69 @@
 import torch
+import torchvision
+import time
 
-class DataSplit:
-    def __init__(self, data, train_p=.8):
-
-        # Randomly split data into train and validation set
-        perm = torch.randperm(data.train_data.shape[0])
-        split_idx = int(len(perm)*train_p)
-        self.train_X = data.train_data[perm[:split_idx]]
-        self.train_Y = data.train_labels[perm[:split_idx]]
-        self.valid_X = data.train_data[perm[split_idx:]]
-        self.valid_Y = data.train_labels[perm[split_idx:]]
-        
-        self.normalized = False
-        self.data_mean = None
-        self.data_std = None
-
-    def normalize(self):
-        if self.data_mean is None:
-            self.data_mean = self.train_X.mean()
-            self.data_std = self.train_X.std()
-        if not self.normalized:
-            self.train_X = (self.train_X - self.data_mean)/(self.data_std + 1e-10)
-            self.valid_X = (self.valid_X - self.data_mean)/(self.data_std + 1e-10)
-
-    def denormalize(self):
-        if self.normalized:
-            self.train_X = self.train_X*(self.data_std + 1e-10) + self.data_mean
-            self.valid_X = self.valid_X*(self.data_std + 1e-10) + self.data_mean
-
-class Optimizer:
-    def __init__(self, net, hyps):
-        self.net = net
-        self.base_lr = hyps['lr']
-        self.opt_type = hyps['optim_type']
-        self.optim = self.new_optimizer(self.net.state_dict(), self.opt_type, self.base_lr)
-
-    def cycle_lr(self, t):
+class DataLoader:
+    def __init__(self, dataset):
         """
-        Sets the learning rate based off of an inverted cosine wave that has a min at y = base_lr and t = 0.
-
-        t - the location along the x dimension to evaluate the learning rate
-        range - 
+        dataset - string denoting the desired torchvision dataset to be used
+                    or dataset collected from lane and niru's dataloader
         """
-        pass
-        
-    def cycle_mmtm(self, t):
-        """
-        Sets the learning rate based off of an inverted cosine wave that has a min at y = base_lr and t = 0.
-
-        t - the location along the x dimension to evaluate the learning rate
-        range - 
-        """
-        pass
-
-    def step(self):
-        self.optim.step()
-
-    def zero_grad(self):
-        self.optim.zero_grad()
-
-    def new_optimizer(self, state_dict, opt_type, lr):
-        """
-        Defaults to adam optimizer if opt_type is unrecognized.
-        """
-        if 'dam' in opt_type:
-            return torch.optim.Adam(state_dict, lr=lr)
-        if 'prop' in opt_type:
-            return torch.optim.RMSprop(state_dict, lr=lr)
+        d = dir(dataset)
+        # Using niru and lane's dataloaded datset
+        if "X" in d and "y" in d:
+            data = dataset
+            splt_idx = int(.8*data.train_data.shape[0])
+            perm = torch.randperm(data.train_data.shape[0]).long()
+            self.train_X = data.X[perm[:splt_idx]]
+            self.train_Y = data.y[perm[:splt_idx]]
+            self.valid_X = data.X[perm[splt_idx:]]
+            self.valid_Y = data.y[perm[splt_idx:]]
+        # Use torchvision dataset
         else:
-            return torch.optim.Adam(state_dict, lr=lr)
+            if dataset is "cifar10":
+                data = torchvision.datasets.CIFAR10("~/ml/datasets", train=True, download=True)
+            else:
+                data = torchvision.datasets.MNIST("~/ml/datasets", train=True, download=True)
 
+            splt_idx = int(.8*data.train_data.shape[0])
+            perm = torch.randperm(data.train_data.shape[0]).long()
+            self.train_X = data.train_data[perm[:splt_idx]]
+            self.train_Y = data.train_labels[perm[:splt_idx]]
+            self.valid_X = data.train_data[perm[splt_idx:]]
+            self.valid_Y = data.train_labels[perm[splt_idx:]]
 
+        self.normalized = False
+        self.mean = None
+        self.std = None
 
-
-
-
-
-
+    def normalize(self, data=None):
+        """
+        Channels of dataset should be last (..., N, H, W, C)
+        """
+        if self.mean is None and not self.normalized:
+            self.mean = torch.FloatTensor([self.train_X[...,i].mean() for i in range(self.train_X.shape[-1])])
+            self.std = torch.FloatTensor([self.train_X[...,i].std() for i in range(self.train_X.shape[-1])])
+        if data is None and not self.normalized:
+            self.train_X = (self.train_X - self.mean)/(self.std+1e-8)
+            self.valid_X = (self.valid_X - self.mean)/(self.std+1e-8)
+            self.normalized = True
+        else:
+            data = (data - self.mean)/(self.std+1e-8)
+        return data
+    
+    def denormalize(self, data=None):
+        """
+        Channels of dataset should be last (..., N, H, W, C)
+        """
+        if self.mean is None and not self.normalized:
+            self.mean = torch.FloatTensor([self.train_X[...,i].mean() for i in range(self.train_X.shape[-1])])
+            self.std = torch.FloatTensor([self.train_X[...,i].std() for i in range(self.train_X.shape[-1])])
+        if data is None and self.normalized:
+            self.train_X = (self.std+1e-8)*self.train_X + self.mean
+            self.valid_X = (self.std+1e-8)*self.valid_X + self.mean
+            self.normalized = False
+        else:
+            data = (self.std+1e-8)*data + self.mean
+        return data
+        
 
